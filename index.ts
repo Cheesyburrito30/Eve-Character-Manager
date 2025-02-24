@@ -1,15 +1,22 @@
-import express, { Express, Request, RequestHandler, Response } from 'express';
+import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import { sequelize, User } from './database';
-import { initializeUserRoutes } from './routes';
+import { initializeCharacterRoutes, initializeUserRoutes } from './routes';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { Model } from 'sequelize';
+import { initializeDBModels, User } from './database';
+
+export class Character extends Model {}
 
 dotenv.config();
 
 const app = express();
+// Middleware for parsing request body
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
 const port = process.env.PORT || 3001;
 const secretKey = process.env.JWT_SECRET_KEY || '';
 const saltRounds = 10;
@@ -21,61 +28,82 @@ app.use(
 	})
 );
 
-// sync db
-sequelize.sync();
+initializeDBModels();
 
-// Middleware for parsing request body
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+initializeUserRoutes(app);
+initializeCharacterRoutes(app);
 
 app.listen(port, () => {
 	console.log(`Example app listening on port ${port}`);
 });
 
-initializeUserRoutes(app);
-
 app.post('/login', async (req, res) => {
 	const { name, password } = req.body;
 
-	const user = await User.findOne({ where: { name } });
+	const user = await User.findOne({
+		where: { name },
+	});
+	// check if passwords match
 	bcrypt.compare(password, user?.dataValues.password, (err, result) => {
 		if (result) {
-			console.log('wee');
-			jwt.sign({ user }, secretKey, { expiresIn: '1h' }, (err, token) => {
-				res.send(token);
-			});
+			// make sure we're not passing the password to the JWT
+			const { password: _userPass, ...userMinusPassword } = user?.dataValues;
+			jwt.sign(
+				{ user: { ...userMinusPassword } },
+				secretKey,
+				{ expiresIn: '1h' },
+				(err, token) => {
+					res.send(token);
+				}
+			);
 			return;
 		}
 		res.sendStatus(500);
 	});
 });
 
-const checkToken: RequestHandler = (req, res, next) => {
-	const authHeader = req.headers['authorization'];
-
-	if (authHeader !== 'undefined') {
-		// header exists, we know that a token was probably passed
-		const splitHeader = authHeader?.split(' ') ?? []; // ['bearer ', '<token>']
-		const token = splitHeader[1]; // '<token>'
-
-		if (token) {
-			jwt.verify(token, secretKey, (err, data) => {
-				if (err) {
-					res.sendStatus(403);
-					return;
-				}
-
-				next();
-			});
+app.get('/redirect', async (req, res) => {
+	const { code } = req.query ?? {};
+	// console.log(req);
+	const encodedAuth = btoa(
+		`${process.env.ESI_CLIENT_ID}:${process.env.ESI_CLIENT_SECRET}`
+	);
+	const response = await fetch(
+		`https://login.eveonline.com/v2/oauth/token`, //404
+		{
+			method: 'post',
+			body: `grant_type=authorization_code&code=${code}`,
+			headers: {
+				Authorization: `Basic ${encodedAuth}`,
+				'Content-Type': 'application/x-www-form-urlencoded',
+			},
 		}
-	}
-};
+	);
 
-app.get('/protected', checkToken, async (req, res) => {
-	res.json({
-		message: 'fuck ye bro it worked',
-	});
+	const { access_token, refresh_token } = await response.json();
+
+	const decodedJWT = jwt.decode(access_token);
+	// if no JWT or if JWT isn't the right shape, abort
+	if (!decodedJWT || typeof decodedJWT === 'string') {
+		res.sendStatus(500);
+		return;
+	}
+
+	const { sub, name } = decodedJWT;
+	const characterId = sub?.split(':')[2]; // 'CHARACTER:EVE:<ID>'
+	const character = {
+		characterId,
+		name,
+		accessToken: access_token,
+		refreshToken: refresh_token,
+	};
+
+	// console.log(access_token, refresh_token);
+	res.send(response);
 });
+
+const queryString =
+	'?response_type=code&client_id=f9a543657688496c82aaae245ade5671&redirect_uri=http%3A%2F%2Flocalhost%3A3001%2Fredirect&scope=publicData esi-calendar.respond_calendar_events.v1&state=my-state';
 
 // import { querystring } from "@evespace/esi-client";
 // const loginParams = querystring({
