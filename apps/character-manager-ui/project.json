@@ -1,0 +1,9 @@
+{
+  "name": "character-manager-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/character-manager-ui/src",
+  "projectType": "application",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project character-manager-ui --web",
+  "targets": {}
+}
