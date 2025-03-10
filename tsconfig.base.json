@@ -4,6 +4,9 @@
     "target": "es2016",
     "module": "commonjs",
     "skipLibCheck": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "ui-components": ["libs/ui-components/src/index.ts"]
+    }
   }
 }
