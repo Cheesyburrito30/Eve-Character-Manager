@@ -107,4 +107,4 @@ app.get('/redirect', async (req, res) => {
 
 // const queryString = `?response_type=code&client_id=${process.env.NX_PUBLIC_ESI_CLIENT_ID}&redirect_uri=http%3A%2F%2Flocalhost%3A3001%2Fredirect&scope=publicData&state=my-state`;
 
-// test change after repo rename
+// 2 test change after repo rename
