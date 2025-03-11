@@ -1,8 +1,8 @@
 import { SALT_ROUNDS } from '../constants';
-import { User } from '../database';
+import { Character, User } from '../database';
 import { Express } from 'express';
 import bcrypt from 'bcrypt';
-import { checkAdminToken, checkToken } from '../utils';
+import { checkAdminToken, checkToken, checkUserToken } from '../utils';
 
 export const initializeUserRoutes = (app: Express) => {
   // CRUD routes for User model
@@ -13,7 +13,13 @@ export const initializeUserRoutes = (app: Express) => {
     res.json(users);
   });
 
-  app.get('/users/:id', checkToken, async (req, res) => {
+  app.get('/users/:id', checkUserToken, async (req, res) => {
+    const paramId = Number.parseInt(req.params.id, 10);
+    if (req.body.userId !== paramId) {
+      res.sendStatus(403);
+      return;
+    }
+
     const user = await User.findByPk(req.params.id, {
       attributes: ['id', 'name', 'email', 'createdAt', 'updatedAt'],
       include: ['Characters'],
@@ -46,7 +52,13 @@ export const initializeUserRoutes = (app: Express) => {
     }
   });
 
-  app.put('/users/:id', checkToken, async (req, res) => {
+  app.put('/users/:id', checkUserToken, async (req, res) => {
+    const paramId = Number.parseInt(req.params.id, 10);
+    if (req.body.userId !== paramId) {
+      res.sendStatus(403);
+      return;
+    }
+
     const user = await User.findByPk(req.params.id);
     if (user) {
       await user.update(req.body);
@@ -63,6 +75,27 @@ export const initializeUserRoutes = (app: Express) => {
       res.json({ message: 'User deleted' });
     } else {
       res.status(404).json({ message: 'User not found' });
+    }
+  });
+
+  app.get('/users/:id/characters', checkUserToken, async (req, res) => {
+    const paramId = Number.parseInt(req.params.id, 10);
+    if (req.body.userId !== paramId) {
+      res.sendStatus(403);
+      return;
+    }
+
+    try {
+      const characters = await Character.findAll({
+        where: {
+          UserId: req.params.id,
+        },
+      });
+
+      res.json(characters);
+    } catch (err) {
+      console.error(err);
+      res.sendStatus(500);
     }
   });
 };

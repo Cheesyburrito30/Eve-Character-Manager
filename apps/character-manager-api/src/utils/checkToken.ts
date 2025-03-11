@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const secretKey = process.env.JWT_SECRET_KEY || '';
+const secretKey = process.env.NX_PUBLIC_JWT_SECRET_KEY || '';
 
 export const checkToken: RequestHandler = (req, res, next) => {
   const authHeader = req.headers['authorization'];

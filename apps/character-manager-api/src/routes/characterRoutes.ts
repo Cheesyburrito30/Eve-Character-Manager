@@ -30,6 +30,7 @@ export const initializeCharacterRoutes = (app: Express) => {
       if ((err as any).name === 'SequelizeUniqueConstraintError') {
         res.status(400);
         res.send({ message: 'Character already exists' });
+        return;
       }
       res.sendStatus(500);
     }
@@ -42,6 +43,7 @@ export const initializeCharacterRoutes = (app: Express) => {
       res.send({
         message: 'Character does not exist',
       });
+      return;
     }
     if (req.body.userId !== character?.dataValues.userId) {
       res.sendStatus(403);
